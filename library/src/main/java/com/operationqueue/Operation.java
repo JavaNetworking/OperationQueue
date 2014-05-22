@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package com.javanetworking.operationqueue;
+package com.operationqueue;
 
 /**
  Public interface Operation defines the exection interface for {@link OperationQueue}.

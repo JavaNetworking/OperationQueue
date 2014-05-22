@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package com.javanetworking.operationqueue;
+package com.operationqueue;
 
 /**
  The base operation which can be sub-classed. All the basic operations

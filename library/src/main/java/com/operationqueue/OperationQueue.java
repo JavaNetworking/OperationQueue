@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package com.javanetworking.operationqueue;
+package com.operationqueue;
 
 import java.util.HashMap;
 import java.util.List;
