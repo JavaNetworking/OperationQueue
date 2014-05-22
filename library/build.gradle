@@ -1,0 +1,8 @@
+apply plugin: 'java'
+
+defaultTasks 'clean'
+
+jar {
+    baseName = 'OperationQueue'
+    version =  '0.1'
+}

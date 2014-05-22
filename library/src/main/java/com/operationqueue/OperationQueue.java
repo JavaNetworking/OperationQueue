@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import com.javanetworking.operationqueue.Operation.OperationState;
+import com.operationqueue.Operation.OperationState;
 
 /**
  The {@link OperationsQueue} class handles the execution of {@link Operation} instances
