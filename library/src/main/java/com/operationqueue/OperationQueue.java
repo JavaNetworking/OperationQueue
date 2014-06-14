@@ -130,9 +130,8 @@ public class OperationQueue {
 		}
 
 		// If current running status is false then start the working thread
-		Thread thread = getThreads().get(key);
-		if (getRunningStatus(key) != true && !thread.isAlive()) {
-			thread.start();
+		if (getRunningStatus(key) != true) {
+			getThreadForKey(key).start();
 		}
 	}
 
@@ -217,9 +216,6 @@ public class OperationQueue {
 		BlockingQueue<Operation> queue = new LinkedBlockingQueue<Operation>();
 		getQueues().put(key, queue);
 
-		Thread t = newThreadForQueueKey(key);
-		getThreads().put(key, t);
-
 		return queue;
 	}
 
@@ -241,6 +237,44 @@ public class OperationQueue {
 			this.queueThreads = new HashMap<String, Thread>();
 		}
 		return this.queueThreads;
+	}
+
+	/**
+	 Put thread into thread {@link HashMap}.
+
+	 @param key String value representing the {@link HashMap} key to use.
+	 @param t Thread to store for key.
+	 */
+	private void putThreadForKey(String key, Thread t) {
+		getThreads().put(key, t);
+	}
+
+	/**
+	 Get thread for key from {@link HashMap}.
+
+	 If thread not found a new thread is created for key.
+
+	 @param key String value representing the {@link HashMap} key to use.
+
+	 @return A thread instance from key.
+	 */
+	private Thread getThreadForKey(String key) {
+		Thread t = getThreads().get(key);
+		if (t == null) {
+			t = newThreadForQueueKey(key);
+		}
+		putThreadForKey(key, t);
+
+		return t;
+	}
+
+	/**
+	 Removes thread from thread {@link HashMap}.
+
+	 @param key String value representing the {@link HashMap} key to use.
+	 */
+	private void removeThreadForKey(String key) {
+		getThreads().remove(key);
 	}
 
 	/**
@@ -308,6 +342,9 @@ public class OperationQueue {
 	 */
 	private synchronized void setRunningStatus(String key, boolean status) {
 		getRunningStatuses().put(key, status);
+		if (!status) {
+			removeThreadForKey(key);
+		}
 	}
 
 	/**
