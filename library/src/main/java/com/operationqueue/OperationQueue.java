@@ -293,19 +293,23 @@ public class OperationQueue {
 
 				BlockingQueue<Operation> queue = getQueue(key);
 
+				Operation operation = null;
+
 				while (getRunningStatus(key)) {
 					try {
-						Operation operation = null;
 						try {
 							operation = queue.take();
 							operation.setState(OperationState.Running);
 							operation.execute();
 							operation.setState(OperationState.Finished);
 						} catch (Throwable t) {
+							operation.failure(t);
 							operation.setState(OperationState.Cancelled);
 						}
 						operation.complete();
-					} catch (Throwable t) {}
+					} catch (Throwable t) {
+						operation.failure(t);
+					}
 
 
 					if (queue.isEmpty()) {

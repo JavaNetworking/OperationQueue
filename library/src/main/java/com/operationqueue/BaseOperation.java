@@ -33,6 +33,11 @@ public class BaseOperation implements Operation {
 	private OperationState state = null;
 
 	/**
+	 Holds the operation error if any, or null if no error occurred.
+	 */
+	private Throwable throwable;
+
+	/**
 	 Basic constructor, sets the {@link OperationState} to {@link OperationState.Created}.
 	 */
 	public BaseOperation() {
@@ -58,7 +63,23 @@ public class BaseOperation implements Operation {
 	}
 
 	/**
-	 The execution methods where executing code should be placed.
+	 Set the current {@link Throwable} for this operation.
+	 */
+	private synchronized void setThrowable(Throwable t) {
+		this.throwable = t;
+	}
+
+	/**
+	 Gets the current {@link Throwable} if any.
+
+	 @return A {@link Throwable} with information about an error, or null if no error occurred.
+	 */
+	public synchronized Throwable getThrowable() {
+		return this.throwable;
+	}
+
+	/**
+	 The execution method where executing code should be placed.
 	 This method is called in a separate thread on the {@link OperationQueue} queue which
 	 holds this {@link Operation}.
 	 */
@@ -67,9 +88,17 @@ public class BaseOperation implements Operation {
 	}
 
 	/**
-	 The completion methods which is called after the {@code execute()} method is called.
+	 The completion method which is called after the {@code execute()} method is called.
  	 */
 	public synchronized void complete() {
 		setState(OperationState.Finished);
+	}
+
+	/**
+	 The failure method is called when an exception occurs on working thread.
+	 */
+	public synchronized void failure(Throwable t) {
+		setState(OperationState.Failed);
+		setThrowable(t);
 	}
 }
