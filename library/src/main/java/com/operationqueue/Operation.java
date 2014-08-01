@@ -30,6 +30,7 @@ public interface Operation {
 	enum OperationState {
 		Created,
 		Rejected,
+		Failed,
 		InQueue,
 		Running,
 		Cancelled,
@@ -49,4 +50,5 @@ public interface Operation {
 	 */
 	void execute();
 	void complete();
+	void failure(Throwable t);
 }
