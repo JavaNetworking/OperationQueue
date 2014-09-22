@@ -1,6 +1,8 @@
 OperationQueue
 ==============
 
+[![Build Status](https://travis-ci.org/JavaNetworking/OperationQueue.svg?branch=master)](https://travis-ci.org/JavaNetworking/OperationQueue)
+
 Operation queue executes operations on threads
 
 ## Basic usage
