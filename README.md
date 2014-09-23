@@ -1,7 +1,7 @@
 OperationQueue
 ==============
 
-[![Build Status](https://travis-ci.org/JavaNetworking/OperationQueue.svg?branch=master)](https://travis-ci.org/JavaNetworking/OperationQueue)
+[![Build Status](https://travis-ci.org/JavaNetworking/OperationQueue.svg?branch=master)](https://travis-ci.org/JavaNetworking/OperationQueue) [![Platform](http://img.shields.io/badge/platform-java%7Candroid-lightgrey.svg)]()
 
 Operation queue executes operations on threads
 
