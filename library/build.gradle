@@ -2,6 +2,14 @@ apply plugin: 'java'
 
 defaultTasks 'clean'
 
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+  testCompile group: 'junit', name: 'junit', version: '4.11'
+}
+
 jar {
     baseName = 'OperationQueue'
     version =  '0.3'
