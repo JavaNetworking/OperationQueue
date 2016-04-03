@@ -24,31 +24,31 @@ package com.operationqueue;
  Public interface Operation defines the exection interface for {@link OperationQueue}.
  */
 public interface Operation {
-	/**
-	 The {@link Operation} states.
-	 */
-	enum OperationState {
-		Created,
-		Rejected,
-		Failed,
-		InQueue,
-		Running,
-		Cancelled,
-		Finished
-	}
+    /**
+     The {@link Operation} states.
+     */
+    enum OperationState {
+        Created,
+        Rejected,
+        Failed,
+        InQueue,
+        Running,
+        Cancelled,
+        Finished
+    }
 
-	/**
-	 State setting and getting.
-	 */
-	void setState(OperationState state);
-	OperationState getState();
+    /**
+     State setting and getting.
+     */
+    void setState(OperationState state);
+    OperationState getState();
 
-	/**
-	 Execution methods. {@code execute()} is called and should include the executing code that
-	 is executes asynchronously on other thread. {@code complete()} is called once the
-	 {@code execute()} method finishes and another {@link Operation} can be executed.
-	 */
-	void execute();
-	void complete();
-	void failure(Throwable t);
+    /**
+     Execution methods. {@code execute()} is called and should include the executing code that
+     is executes asynchronously on other thread. {@code complete()} is called once the
+     {@code execute()} method finishes and another {@link Operation} can be executed.
+     */
+    void execute();
+    void complete();
+    void failure(Throwable t);
 }
