@@ -9,39 +9,38 @@ import org.junit.Test;
 
 
 public class OperationQueueTest {
-	
-	@Test
-	public void testOperationQueue() {
-		final CountDownLatch signal = new CountDownLatch(1);
 
-		// Setup OperationQueue with one base operation
-		OperationQueue operationQueue = new OperationQueue();
-		operationQueue.addOperation(new BaseOperation() {
-			@Override
-			public synchronized void execute() {
-				try {
-					Thread.sleep(3000);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-			}
-			@Override
-			public synchronized void complete() {
-				signal.countDown();
-			}
-		});
+    @Test
+    public void testOperationQueue() {
+        final CountDownLatch signal = new CountDownLatch(1);
 
-		// Test if empty
-		assertFalse(operationQueue.isEmpty());
+        // Setup OperationQueue with one base operation
+        OperationQueue operationQueue = new OperationQueue();
+        operationQueue.addOperation(new BaseOperation() {
+            @Override
+            public synchronized void execute() {
+                try {
+                    Thread.sleep(3000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            @Override
+            public synchronized void complete() {
+                signal.countDown();
+            }
+        });
 
-		// Wait for signal
-		try {
+        // Test if empty
+        assertFalse(operationQueue.isEmpty());
+
+        // Wait for signal
+        try {
             signal.await(30, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
-		assertTrue(operationQueue.isEmpty());
-	}
-	
+        assertTrue(operationQueue.isEmpty());
+    }
 }
