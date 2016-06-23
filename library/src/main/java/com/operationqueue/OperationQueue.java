@@ -125,13 +125,16 @@ public class OperationQueue {
         BlockingQueue<Operation> queue = getQueue(key);
         if (queue.offer(operation)) {
             operation.setState(OperationState.InQueue);
+
+            // If current running status is false then start the working thread
+            if (getRunningStatus(key) != true) {
+                Thread t = getThreadForKey(key);
+                if (t.getState() == Thread.State.NEW) {
+                    t.start();
+                }
+            }
         } else {
             operation.setState(OperationState.Rejected);
-        }
-
-        // If current running status is false then start the working thread
-        if (getRunningStatus(key) != true) {
-            getThreadForKey(key).start();
         }
     }
 
