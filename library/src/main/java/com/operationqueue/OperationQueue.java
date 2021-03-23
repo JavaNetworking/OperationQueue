@@ -69,10 +69,18 @@ public class OperationQueue {
     // @name Public methods, {@link OperationQueue} interface
     //-------------------------------------------------------
 
+    private String currentQueue;
+
     /**
      Default constructor
      */
-    public OperationQueue() {}
+    public OperationQueue() {
+        this.currentQueue = MAIN_QUEUE_KEY;
+    }
+
+    public OperationQueue(String queueName) {
+        this.currentQueue = queueName;
+    }
 
     /**
      Cancel all waiting operations and clear operations queue. This method sets the running
@@ -107,7 +115,7 @@ public class OperationQueue {
      @param operation The {@link Operation} instance which is added to the queue.
      */
     public void addOperation(BaseOperation operation) {
-        this.addOperationToQueueNamed(MAIN_QUEUE_KEY, operation);
+        this.addOperationToQueueNamed(currentQueue, operation);
     }
 
     /**
@@ -120,7 +128,7 @@ public class OperationQueue {
      @param key A string value that is the key identifier name of a Queue.
      @param operation The {@link Operation} instance which is added to the queue.
      */
-    public void addOperationToQueueNamed(String key, BaseOperation operation) {
+    private void addOperationToQueueNamed(String key, BaseOperation operation) {
 
         // Offer the operation to the operation queue
         BlockingQueue<BaseOperation> queue = getQueue(key);
@@ -153,7 +161,7 @@ public class OperationQueue {
              has no waiting operations to execute.
      */
     public boolean isEmpty() {
-        return this.isEmpty(MAIN_QUEUE_KEY);
+        return this.isEmpty(currentQueue);
     }
 
     /**
@@ -168,7 +176,7 @@ public class OperationQueue {
     }
 
     public boolean isDone() {
-        return isDone(MAIN_QUEUE_KEY);
+        return isDone(currentQueue);
     }
 
     public boolean isDone(String key) {
