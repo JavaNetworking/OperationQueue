@@ -24,7 +24,7 @@ package com.operationqueue;
  The base operation which can be sub-classed. All the basic operations
  attributes such as current running state, should be set in this class.
  */
-public class BaseOperation implements Operation {
+public class BaseOperation implements Operation, Runnable {
 
     /**
      A {@link OperationState} value indicating the operations
@@ -100,5 +100,18 @@ public class BaseOperation implements Operation {
     public synchronized void failure(Throwable t) {
         setState(OperationState.Failed);
         setThrowable(t);
+    }
+
+    @Override
+    public void run() {
+        try {
+            this.setState(OperationState.Running);
+            this.execute();
+            this.setState(OperationState.Finished);
+            this.complete();
+        } catch (Throwable t) {
+            this.failure(t);
+            this.setState(OperationState.Cancelled);
+        }
     }
 }

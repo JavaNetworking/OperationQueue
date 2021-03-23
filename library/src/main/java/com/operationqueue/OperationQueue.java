@@ -24,9 +24,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.io.IOException;
 import com.operationqueue.Operation.OperationState;
+import java.util.ArrayList;
 
 /**
  The {@link OperationsQueue} class handles the execution of {@link Operation} instances
@@ -42,23 +48,22 @@ public class OperationQueue {
     /**
      A {@link HashMap} instance which holds the operation queues for current {@link OperationQueue} instance.
      */
-    private Map<String, BlockingQueue<Operation>> queues;
+    private Map<String, BlockingQueue<BaseOperation>> queues;
 
     /**
-     A {@link HashMap} instance which holds the {@link BlockingQueue} execution threads.
+     A {@link HashMap} instance which holds the {@link BlockingQueue} execution thread pools.
 
-     Every {@link BlockingQueue} gets its own thread with the same key identifier name which their operations
+     Every {@link BlockingQueue} gets its own thread pool with the same key identifier name which their operations
      are executed on.
      */
-    private Map<String, Thread> queueThreads;
+    private Map<String, ExecutorService> queueThreadPools;
 
     /**
-     A {@link HashMap} instance which holds the worker thread statuses.
+     A {@link HashMap} instance which holds the {@link Future}s.
 
-     When a queue is set to false the worker thread exits after the next operation is finished.
+     When all futures have finished executing, the thread pool return true on isDone.
      */
-    private Map<String, Boolean> runningStatuses;
-
+    private Map<String, List<Future>> queueFutures;
 
     //-------------------------------------------------------
     // @name Public methods, {@link OperationQueue} interface
@@ -75,21 +80,17 @@ public class OperationQueue {
      and exits before finally clearing the main queue for waiting operations.
      */
     public void cancelAllOperations() {
-
-        Set<String> statusKeys = getRunningStatuses().keySet();
-        for (String key : statusKeys) {
-            setRunningStatus(key, false);
-        }
-
-        Set<String> threadKeys = getThreads().keySet();
-        for (String key : threadKeys) {
-            Thread t = getThreads().get(key);
-            t.interrupt();
+        Set<String> futureQueueKeys = queueFutures.keySet();
+        for (String key : futureQueueKeys) {
+            List<Future> fs = queueFutures.get(key);
+            for (Future f : fs) {
+                f.cancel(true);
+            }
         }
 
         Set<String> queueKeys = getQueues().keySet();
         for (String key : queueKeys) {
-            BlockingQueue<Operation> queue = getQueue(key);
+            BlockingQueue<BaseOperation> queue = getQueue(key);
             queue.clear();
         }
     }
@@ -105,7 +106,7 @@ public class OperationQueue {
 
      @param operation The {@link Operation} instance which is added to the queue.
      */
-    public void addOperation(Operation operation) {
+    public void addOperation(BaseOperation operation) {
         this.addOperationToQueueNamed(MAIN_QUEUE_KEY, operation);
     }
 
@@ -119,20 +120,14 @@ public class OperationQueue {
      @param key A string value that is the key identifier name of a Queue.
      @param operation The {@link Operation} instance which is added to the queue.
      */
-    public void addOperationToQueueNamed(String key, Operation operation) {
+    public void addOperationToQueueNamed(String key, BaseOperation operation) {
 
         // Offer the operation to the operation queue
-        BlockingQueue<Operation> queue = getQueue(key);
+        BlockingQueue<BaseOperation> queue = getQueue(key);
         if (queue.offer(operation)) {
             operation.setState(OperationState.InQueue);
 
-            // If current running status is false then start the working thread
-            if (getRunningStatus(key) != true) {
-                Thread t = getThreadForKey(key);
-                if (t.getState() == Thread.State.NEW) {
-                    t.start();
-                }
-            }
+            runThreadsInThreadPool(key);
         } else {
             operation.setState(OperationState.Rejected);
         }
@@ -145,8 +140,8 @@ public class OperationQueue {
      @param operations An instantiated {@link List} of instantiated {@link Operation} objects which is
             added to the {@link OperationQueue}s main queue.
      */
-    public void addOperations(List<Operation> operations) {
-        for (Operation operation : operations) {
+    public void addOperations(List<BaseOperation> operations) {
+        for (BaseOperation operation : operations) {
             this.addOperation(operation);
         }
     }
@@ -169,7 +164,23 @@ public class OperationQueue {
              has no waiting operations to execute.
      */
     public boolean isEmpty(String key) {
-        return getQueue(key).isEmpty();
+        return isDone(key);
+    }
+
+    public boolean isDone() {
+        return isDone(MAIN_QUEUE_KEY);
+    }
+
+    public boolean isDone(String key) {
+        boolean status = true;
+
+        List<Future> flist = queueFutures.get(key);
+        for (Future f : flist) {
+            if (!f.isDone()) {
+                status = false;
+            }
+        }
+        return status;
     }
 
     //----------------------------------------------
@@ -185,10 +196,12 @@ public class OperationQueue {
 
      @return A {@link BlockingQueue} instance which holds {@link Operation} instances.
      */
-    private synchronized BlockingQueue<Operation> getQueue(String key) {
-        BlockingQueue<Operation> queue = getQueues().get(key);
+    private synchronized BlockingQueue<BaseOperation> getQueue(String key) {
+        BlockingQueue<BaseOperation> queue = getQueues().get(key);
         if (queue == null) {
             queue = newQueueForKey(key);
+            queueFutures = new HashMap<String, List<Future>>();
+            queueFutures.put(key, new ArrayList<Future>());
         }
         return queue;
     }
@@ -200,9 +213,9 @@ public class OperationQueue {
 
      @return A {@link Map} instance which holds the operation queues of this class.
      */
-    private Map<String, BlockingQueue<Operation>> getQueues() {
+    private Map<String, BlockingQueue<BaseOperation>> getQueues() {
         if (this.queues == null) {
-            this.queues = new HashMap<String, BlockingQueue<Operation>>();
+            this.queues = new HashMap<String, BlockingQueue<BaseOperation>>();
         }
         return this.queues;
     }
@@ -214,9 +227,9 @@ public class OperationQueue {
 
      @return A {@link BlockingQueue} instance which can hold {@link Operation} instances.
      */
-    private BlockingQueue<Operation> newQueueForKey(String key) {
+    private BlockingQueue<BaseOperation> newQueueForKey(String key) {
 
-        BlockingQueue<Operation> queue = new LinkedBlockingQueue<Operation>();
+        BlockingQueue<BaseOperation> queue = new LinkedBlockingQueue<BaseOperation>();
         getQueues().put(key, queue);
 
         return queue;
@@ -224,32 +237,32 @@ public class OperationQueue {
 
 
     //----------------------------------------------
-    // @name Thread and operation handling
+    // @name Thread pool and operation handling
     //----------------------------------------------
 
     /**
      Gets the {@link OperationQueue}s thread {@link HashMap} that holds all the
      worker threads.
 
-     If the threads map is null an new {@link HashMap} instance is created.
+     If the thread pools map is null an new {@link HashMap} instance is created.
 
      @return A {@link Map} instance that holds the worker threads.
      */
-    private Map<String, Thread> getThreads() {
-        if (this.queueThreads == null) {
-            this.queueThreads = new HashMap<String, Thread>();
+    private Map<String, ExecutorService> getThreadPools() {
+        if (this.queueThreadPools == null) {
+            this.queueThreadPools = new HashMap<String, ExecutorService>();
         }
-        return this.queueThreads;
+        return this.queueThreadPools;
     }
 
     /**
      Put thread into thread {@link HashMap}.
 
      @param key String value representing the {@link HashMap} key to use.
-     @param t Thread to store for key.
+     @param tp ExecutorService to store for key.
      */
-    private void putThreadForKey(String key, Thread t) {
-        getThreads().put(key, t);
+    private void putThreadPoolForKey(String key, ExecutorService tp) {
+        getThreadPools().put(key, tp);
     }
 
     /**
@@ -259,116 +272,55 @@ public class OperationQueue {
 
      @param key String value representing the {@link HashMap} key to use.
 
-     @return A thread instance from key.
+     @return A thread pool instance from key.
      */
-    private Thread getThreadForKey(String key) {
-        Thread t = getThreads().get(key);
+    private ExecutorService getThreadPoolForKey(String key) {
+        ExecutorService t = getThreadPools().get(key);
         if (t == null) {
-            t = newThreadForQueueKey(key);
+            t = Executors.newFixedThreadPool(10); //newThreadPoolForQueueKey(key);
+            putThreadPoolForKey(key, t);
         }
-        putThreadForKey(key, t);
 
         return t;
     }
 
+    private void runThreadsInThreadPool(final String key) {
+        ExecutorService tp = getThreadPoolForKey(key);
+
+        try {
+            while (!getQueue(key).isEmpty()) {
+                Future f = tp.submit(getQueue(key).take());
+
+                queueFutures.get(key).add(f);
+            }
+        } catch (InterruptedException ex) {
+            // tp.shutdown();
+        }
+    }
+
     /**
-     Removes thread from thread {@link HashMap}.
+     Removes thread pool from thread {@link HashMap}.
 
      @param key String value representing the {@link HashMap} key to use.
      */
-    private void removeThreadForKey(String key) {
-        getThreads().remove(key);
-    }
+//    private void removeThreadForKey(String key) throws InterruptedException {
+//        ExecutorService tp = getThreadPools().remove(key);
+//        if (tp != null) {
+//            tp.shutdown();
+//            tp.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+//        }
+//    }
 
     /**
-     Creates a new worker thread for the {@param key} identifier name.
+     Creates a new worker thread pool for the {@param key} identifier name.
 
      @param key A string value that identifies the {@link BlockingQueue} queue the
-                thread should take its {@link Operation}s from.
+                thread pool should take its {@link Operation}s from.
 
-     @return A thread instance which executes {@link Operation} instances.
+     @return A {@link ExecutorService} instance which executes {@link Operation} instances.
      */
-    private Thread newThreadForQueueKey(final String key) {
-        return new Thread(new Runnable() {
-            @Override
-            public void run() {
-                setRunningStatus(key, true);
+//    private ExecutorService newThreadPoolForQueueKey(final String key) {
+//        return Executors.newFixedThreadPool(10);
+//    }
 
-                BlockingQueue<Operation> queue = getQueue(key);
-
-                Operation operation = null;
-
-                while (getRunningStatus(key)) {
-                    try {
-                        try {
-                            operation = queue.take();
-                            operation.setState(OperationState.Running);
-                            operation.execute();
-                            operation.setState(OperationState.Finished);
-                        } catch (Throwable t) {
-                            operation.failure(t);
-                            operation.setState(OperationState.Cancelled);
-                        }
-                        operation.complete();
-                    } catch (Throwable t) {
-                        operation.failure(t);
-                    }
-
-
-                    if (queue.isEmpty()) {
-                        setRunningStatus(key, false);
-                    }
-                }
-            }
-        });
-    }
-
-
-    //----------------------------------------------
-    // @name Working thread status handling
-    //----------------------------------------------
-
-    /**
-     Get the {@link HashMap} which holds the running statuses.
-
-     @return A {@link HashMap} instance that holds the boolean values
-     */
-    private Map<String, Boolean> getRunningStatuses() {
-        if (this.runningStatuses == null) {
-            this.runningStatuses = new HashMap<String, Boolean>();
-        }
-        return this.runningStatuses;
-    }
-
-    /**
-     Set the running status of execution threads.
-
-     @param key A string key identifier name representing operation queue name.
-     @param status A boolean value indicating if the running status should be true or false.
-                   If false the execution threads will exit after the next operations finishes.
-     */
-    private synchronized void setRunningStatus(String key, boolean status) {
-        getRunningStatuses().put(key, status);
-        if (!status) {
-            removeThreadForKey(key);
-        }
-    }
-
-    /**
-     Return the running status boolean value.
-
-     If the running status is set to false, the working thread may be waiting for a new operation
-     and not exit. It maybe waiting until it is interrupted/cancelled ({@see cancelAllOperations()}).
-
-     @param key A string key identifier name representing operation queue name.
-     @return A boolean value indicating the running status of the execution thread identified.
-     */
-    private synchronized boolean getRunningStatus(String key) {
-        Boolean status = getRunningStatuses().get(key);
-        if (status == null) {
-            return false;
-        }
-
-        return status;
-    }
 }
